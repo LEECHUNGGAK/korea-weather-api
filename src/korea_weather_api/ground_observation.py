@@ -26,11 +26,11 @@ class GroundObservation:
 
             elif isinstance(value, int):
                 if value == -9:
-                    data[key] = 0
+                    data[key] = None
 
             elif isinstance(value, float):
                 if value == -9.0:
-                    data[key] = 0.0
+                    data[key] = None
 
             elif isinstance(value, str):
                 if value == "-9" or value == "-":
