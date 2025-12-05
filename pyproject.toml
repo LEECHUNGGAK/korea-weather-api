@@ -20,7 +20,6 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "fastapi~=0.115.0",
   "requests~=2.32.0",
 ]
 

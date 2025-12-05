@@ -1,12 +1,11 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
 import requests
-from fastapi import HTTPException
+
+from .base import BaseApi
 
 
-class GroundObservation:
-    BASE_URL = "https://apihub.kma.go.kr/api/typ01/url"
-
+class GroundObservation(BaseApi):
     @staticmethod
     def _preprocess_data(data):
         for key, value in data.items():
@@ -72,15 +71,10 @@ class GroundObservation:
         """
 
         if start_dt > end_dt:
-            raise HTTPException(
-                status_code=400,
-                detail="start_dt must be earlier than or equal to end_dt.",
-            )
+            raise ValueError("start_dt must be earlier than or equal to end_dt.")
+
         if frequency == "hour" and (end_dt - start_dt).days > 31:
-            raise HTTPException(
-                status_code=400,
-                detail="Up to 31 days can be queried for hourly data.",
-            )
+            raise ValueError("Up to 31 days can be queried for hourly data.")
 
         params = {
             "stn": station_id,
@@ -107,19 +101,11 @@ class GroundObservation:
         )
 
         if response.status_code != 200:
-            print(response.text)
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=response.json()["result"]["message"],
-            )
+            raise ValueError(response.json()["result"]["message"])
 
-        data = response.text.splitlines()
-        data = [elem for elem in data if not elem.startswith("#")]
+        data = GroundObservation._preprocess_data(response)
         if not data:
-            raise HTTPException(
-                status_code=404,
-                detail="입력한 관측일 혹은 관측 지점에 데이터가 없습니다.",
-            )
+            raise ValueError("There is no data for the datetime or station.")
 
         result = []
 
@@ -256,11 +242,7 @@ class GroundObservation:
         )
 
         if response.status_code != 200:
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=response.json()["result"]["message"],
-            )
-
+            raise ValueError(response.json()["result"]["message"])
         data = response.text.splitlines()
 
         data = [elem.split() for elem in data[3:-2]]
