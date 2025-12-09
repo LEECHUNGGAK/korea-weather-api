@@ -5,7 +5,7 @@ class BaseApi:
     BASE_URL = "https://apihub.kma.go.kr/api/typ01/url"
 
     @staticmethod
-    def _preprocess_data(response: Response) -> list[str]:
+    def _preprocess_response(response: Response) -> list[str]:
         data = response.text.splitlines()
         data = [elem for elem in data if not elem.startswith("#")]
         return data

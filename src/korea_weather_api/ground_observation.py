@@ -1,13 +1,15 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
 import requests
+from textwrap import wrap
 
+from .models import CloudType
 from .base import BaseApi
 
 
 class GroundObservation(BaseApi):
     @staticmethod
-    def _preprocess_data(data):
+    def _preprocess_data(data: dict[str, Any]) -> dict[str, Any]:
         for key, value in data.items():
             if key.endswith("_dt"):
                 if "-" in value:
@@ -44,7 +46,7 @@ class GroundObservation(BaseApi):
         frequency: Literal["hour", "day"],
         start_dt: datetime,
         end_dt: datetime,
-        station_id: str,
+        station_ids: list[str],
         auth_key: str,
     ) -> list[dict[str, Any]]:
         """
@@ -77,12 +79,12 @@ class GroundObservation(BaseApi):
             raise ValueError("Up to 31 days can be queried for hourly data.")
 
         params = {
-            "stn": station_id,
+            "stn": ":".join(station_ids),
             "disp": "1",
             "authKey": auth_key,
         }
+        separator = None
         if frequency == "hour":
-            separator = None
             if start_dt == end_dt:
                 url = f"{GroundObservation.BASE_URL}/kma_sfctm2.php"
                 params["tm"] = start_dt.strftime("%Y%m%d%H%M")
@@ -91,9 +93,14 @@ class GroundObservation(BaseApi):
                 params["tm1"] = start_dt.strftime("%Y%m%d%H%M")
                 params["tm2"] = end_dt.strftime("%Y%m%d%H%M")
         elif frequency == "day":
-            separator = ","
-            url = f"{GroundObservation.BASE_URL}/kma_sfcdd.php"
-            params["tm"] = start_dt.strftime("%Y%m%d")
+            if start_dt == end_dt:
+                separator = ","
+                url = f"{GroundObservation.BASE_URL}/kma_sfcdd.php"
+                params["tm"] = start_dt.strftime("%Y%m%d")
+            else:
+                url = f"{GroundObservation.BASE_URL}/kma_sfcdd3.php"
+                params["tm1"] = start_dt.strftime("%Y%m%d")
+                params["tm2"] = end_dt.strftime("%Y%m%d")
 
         response = requests.get(
             url,
@@ -103,7 +110,7 @@ class GroundObservation(BaseApi):
         if response.status_code != 200:
             raise ValueError(response.json()["result"]["message"])
 
-        data = GroundObservation._preprocess_data(response)
+        data = GroundObservation._preprocess_response(response)
         if not data:
             raise ValueError("There is no data for the datetime or station.")
 
@@ -135,7 +142,11 @@ class GroundObservation(BaseApi):
                     "cloud_amount_total": int(elem[25]),
                     "cloud_amount_middle": int(elem[26]),
                     "cloud_height_minimum": int(elem[27]),
-                    "cloud_type": elem[28],
+                    "cloud_type": (
+                        [CloudType(i) for i in wrap(elem[28], 2)]
+                        if elem[28] != "-"
+                        else []
+                    ),
                     "visibility": float(elem[32]),
                     "sunshine": float(elem[33]),
                     "insolation": float(elem[34]),
@@ -163,18 +174,18 @@ class GroundObservation(BaseApi):
                     "temperature_max_dt": elem[12],
                     "temperature_min": float(elem[13]),
                     "temperature_min_dt": elem[14],
-                    "temperature_dew_point": float(elem[15]),
-                    "temperature_ground": float(elem[16]),
-                    "temperature_grass": float(elem[17]),
+                    "temperature_dew_point_average": float(elem[15]),
+                    "temperature_ground_average": float(elem[16]),
+                    "temperature_grass_min": float(elem[17]),
                     "humidity_average": float(elem[18]),
                     "humidity_min": float(elem[19]),
                     "humidity_min_dt": elem[20],
-                    "water_vapor_pressure": float(elem[21]),
+                    "water_vapor_pressure_average": float(elem[21]),
                     "evaporation_small": float(elem[22]),
                     "evaporation_large": float(elem[23]),
                     "fog_duration": float(elem[24]),
-                    "atmospheric_pressure": float(elem[25]),
-                    "atmospheric_pressure_sea_level": float(elem[26]),
+                    "atmospheric_pressure_average": float(elem[25]),
+                    "atmospheric_pressure_sea_level_average": float(elem[26]),
                     "atmospheric_pressure_sea_level_max": float(elem[27]),
                     "atmospheric_pressure_sea_level_max_dt": elem[28],
                     "atmospheric_pressure_sea_level_min": float(elem[29]),
@@ -199,13 +210,12 @@ class GroundObservation(BaseApi):
                     "snow_depth_new_dt": elem[48],
                     "snow_depth_max": float(elem[49]),
                     "snow_depth_max_dt": elem[50],
-                    "temperature_earth_5cm": float(elem[51]),
-                    "temperature_earth_10cm": float(elem[52]),
-                    "temperature_earth_15cm": float(elem[53]),
-                    "temperature_earth_30cm": float(elem[54]),
-                    "temperature_earth_50cm": float(elem[55]),
+                    "temperature_earth_05": float(elem[51]),
+                    "temperature_earth_10": float(elem[52]),
+                    "temperature_earth_15": float(elem[53]),
+                    "temperature_earth_30": float(elem[54]),
+                    "temperature_earth_50": float(elem[55]),
                 }
-
             record = GroundObservation._preprocess_data(record)
             result.append(record)
 
